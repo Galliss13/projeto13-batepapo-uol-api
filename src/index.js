@@ -211,19 +211,40 @@ app.get("/messages", async (req, res) => {
 
 app.post("/status", async (req, res) => {
     const user = req.headers.user
-
+    let userStatus
     try {
         const nameExists = await participants.findOne({name: user})
         if (!nameExists) {
             res.sendStatus(400)
             return
         } 
-        console.log(nameExists);
-        nameExists.lastStatus = Date.now()
+        userStatus = nameExists
+    } catch(err) {
+        res.status(500).send({message: err.message})
+        return
+    }
+
+    try {
+        await status.insertOne({
+            name: userStatus.name,
+            lastStatus: Date.now()
+        })
         res.sendStatus(200)
     } catch(err) {
         res.status(500).send({message: err.message})
     }
+
 })
+
+setInterval(async () => {
+    try {
+        const intervalParticipants = await status.find().toArray().reverse()
+        const currentParticipants = intervalParticipants.filter(participant => {
+            Date.now() - participant.lastStatus <= 10000
+        });
+    } catch(err) {
+        res.sendStatus(500)
+    }
+}, 15000)
 
 app.listen(5000, () => console.log("app running on port 5000"));
